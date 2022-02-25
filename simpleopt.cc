@@ -142,54 +142,53 @@ json printVar(localVar *var) {
 
   json locations_json = json::array();
   vector<VariableLocation> locations = var->getLocationLists();
-  for (auto location = locations.begin(); location != locations.end();
-       ++location) {
-    long frameOffset = location->frameOffset;
-    Address lowPC = location->lowPC;
-    Address hiPC = location->hiPC;
+  for (auto &location : locations) {
+    long frameOffset = location.frameOffset;
+    Address lowPC = location.lowPC;
+    Address hiPC = location.hiPC;
     string hiPC_str = number_to_hex(hiPC);
     string lowPC_str = number_to_hex(lowPC);
 
-    MachRegister mr_reg = location->mr_reg;
+    MachRegister mr_reg = location.mr_reg;
     string full_regName = mr_reg.name();
     string regName = getRegFromFullName(full_regName);
     string finalVarString;
 
     // Match the variable format with the output in the disassembly
-    if (location->stClass == storageAddr) {
-      if (location->refClass == storageNoRef) {
+    if (location.stClass == storageAddr) {
+      if (location.refClass == storageNoRef) {
         finalVarString = "$0x" + number_to_hex(frameOffset);  // at&t syntax
         // finalVarString = number_to_hex(frameOffset);
-      } else if (location->refClass == storageRef) {
+      } else if (location.refClass == storageRef) {
         finalVarString =
             "($0x" + number_to_hex(frameOffset) + ")";  // at&t syntax
         // finalVarString = "[" + number_to_hex(frameOffset) + "]";
       }
-    } else if (location->stClass == storageReg) {
-      if (location->refClass == storageNoRef) {
+    } else if (location.stClass == storageReg) {
+      if (location.refClass == storageNoRef) {
         finalVarString =
-            "%" + getRegFromFullName(location->mr_reg.name());  // at&t syntax
-        // finalVarString = getRegFromFullName(location->mr_reg.name());
-      } else if (location->refClass == storageRef) {
-        finalVarString = "(%" + getRegFromFullName(location->mr_reg.name()) +
+            "%" + getRegFromFullName(location.mr_reg.name());  // at&t syntax
+        // finalVarString = getRegFromFullName(location.mr_reg.name());
+      } else if (location.refClass == storageRef) {
+        finalVarString = "(%" + getRegFromFullName(location.mr_reg.name()) +
                          ")";  // at&t syntax
-        // finalVarString = "[" + getRegFromFullName(location->mr_reg.name())
+        // finalVarString = "[" + getRegFromFullName(location.mr_reg.name())
         // +
         // "]";
       }
-    } else if (location->stClass == storageRegOffset) {
-      if (location->refClass == storageNoRef) {
+    } else if (location.stClass == storageRegOffset) {
+      if (location.refClass == storageNoRef) {
         finalVarString = "0x" + number_to_hex(frameOffset) + "(%" +
-                         getRegFromFullName(location->mr_reg.name()) +
+                         getRegFromFullName(location.mr_reg.name()) +
                          ")";  // at&t syntax
-        // finalVarString = getRegFromFullName(location->mr_reg.name()) + " +
+        // finalVarString = getRegFromFullName(location.mr_reg.name()) + " +
         // "
         // + number_to_hex(frameOffset);
-      } else if (location->refClass == storageRef) {
+      } else if (location.refClass == storageRef) {
         finalVarString = "0x" + number_to_hex(frameOffset) + "(%" +
-                         getRegFromFullName(location->mr_reg.name()) +
+                         getRegFromFullName(location.mr_reg.name()) +
                          ")";  // at&t syntax
-        // finalVarString = "[" + getRegFromFullName(location->mr_reg.name())
+        // finalVarString = "[" + getRegFromFullName(location.mr_reg.name())
         // + " + " + number_to_hex(frameOffset) + "]";
       }
     }
@@ -214,14 +213,14 @@ json printFnVars(FunctionBase *f) {
 
   set<localVar *> allVars;
 
-  for (auto it = thisLocalVars.begin(); it != thisLocalVars.end(); ++it)
-    allVars.insert(*it);
-  for (auto it = thisParams.begin(); it != thisParams.end(); ++it)
-    allVars.insert(*it);
+  for(auto &thisLocalVar : thisLocalVars)
+    allVars.insert(thisLocalVar);
+  for(auto &thisParam : thisParams)
+    allVars.insert(thisParam);
 
-  for (auto it = allVars.begin(); it != allVars.end(); ++it) {
+  for (auto &allVar : allVars) {
     // printVar
-    result.push_back(printVar(*it));
+    result.push_back(printVar(allVar));
   }
 
   return result;
@@ -229,8 +228,7 @@ json printFnVars(FunctionBase *f) {
 
 json printInlineEntries(set<InlinedFunction *> &ifuncs,
                         json result = json::array()) {
-  for (auto i = ifuncs.begin(); i != ifuncs.end(); i++) {
-    InlinedFunction *ifunc = *i;
+  for (auto &ifunc : ifuncs) {
     int status;
     const char *name =
         abi::__cxa_demangle(ifunc->getName().c_str(), 0, 0, &status);
@@ -238,11 +236,8 @@ json printInlineEntries(set<InlinedFunction *> &ifuncs,
     const FuncRangeCollection &ranges = ifunc->getRanges();
 
     json ranges_json = json::array();
-    if (!ranges.empty()) {
-      for (auto j = ranges.begin(); j != ranges.end(); j++) {
-        ranges_json.push_back({{"start", (*j).low()}, {"end", (*j).high()}});
-      }
-    }
+    for (auto range : ranges)
+      ranges_json.push_back({{"start", range.low()}, {"end", range.high()}});
 
     result.push_back({
         {"name", print_clean_string(name_str)},
@@ -256,20 +251,19 @@ json printInlineEntries(set<InlinedFunction *> &ifuncs,
 
     SymtabAPI::InlineCollection ic = ifunc->getInlines();
     set<InlinedFunction *> next_funcs;
-    for (auto j = ic.begin(); j != ic.end(); j++)
-      next_funcs.insert(static_cast<InlinedFunction *>(*j));
-    if (!next_funcs.empty()) {
+    for (auto &j : ic)
+      next_funcs.insert(static_cast<InlinedFunction *>(j));
+    if (!next_funcs.empty())
       printInlineEntries(next_funcs, result);
-    }
   }
   return result;
 }
 
 json printInlines(ParseAPI::Function *f) {
   set<FunctionBase *> top_level_functions;
-  for (auto i = f->blocks().begin(); i != f->blocks().end(); i++) {
+  for (const auto &i : f->blocks()) {
     SymtabAPI::Function *symt_func = nullptr;
-    symtab->getContainingFunction((*i)->start(), symt_func);
+    symtab->getContainingFunction(i->start(), symt_func);
     if (!symt_func) continue;
     top_level_functions.insert(symt_func);
   }
@@ -277,16 +271,14 @@ json printInlines(ParseAPI::Function *f) {
 
   set<InlinedFunction *> ifuncs;
   json vars_json = json::array();
-  for (auto i = top_level_functions.begin(); i != top_level_functions.end();
-       i++) {
-    json top_level_vars_json = printFnVars(static_cast<FunctionBase *>(*i));
-    for (auto vars_i = top_level_vars_json.begin();
-         vars_i != top_level_vars_json.end(); vars_i++)
-      vars_json.push_back(*vars_i);
+  for(auto &i : top_level_functions) {
+    json top_level_vars_json = printFnVars(static_cast<FunctionBase *>(i));
+    for(auto &vars_i : top_level_vars_json)
+      vars_json.push_back(vars_i);
 
-    SymtabAPI::InlineCollection ic = (*i)->getInlines();
-    for (auto j = ic.begin(); j != ic.end(); j++) {
-      InlinedFunction *ifunc = static_cast<InlinedFunction *>(*j);
+    SymtabAPI::InlineCollection ic = i->getInlines();
+    for (auto &j : ic) {
+      InlinedFunction *ifunc = static_cast<InlinedFunction *>(j);
       if (addresses.find(ifunc->getOffset()) == addresses.end()) continue;
       ifuncs.insert(ifunc);
     }
@@ -308,22 +300,18 @@ json printLoopEntry(LoopTreeNode *lt) {
     loop_json["name"] = lt->name();
 
     if (!backedges.empty()) {
-      for (auto i = backedges.begin(); i != backedges.end(); i++) {
-        Edge *e = *i;
+      for (auto &e : backedges) {
         loop_json["backedges"].push_back({
             {"from", block_to_id[e->src()]},
             {"to", block_to_id[e->trg()]},
         });
       }
     }
-    for (auto i = blocks.begin(); i != blocks.end(); i++)
-      loop_json["blocks"].push_back(block_to_id[*i]);
+    for (auto &i : blocks)
+      loop_json["blocks"].push_back(block_to_id[i]);
   }
-  if (!lt->children.empty()) {
-    for (auto i = lt->children.begin(); i != lt->children.end(); i++) {
-      loop_json["loops"].push_back(printLoopEntry(*i));
-    }
-  }
+  for (auto &i : lt->children)
+    loop_json["loops"].push_back(printLoopEntry(i));
   return loop_json;
 }
 
@@ -332,11 +320,10 @@ json printParse() {
 
   // setBlockIds()
   unsigned long id = 0;
-  for (auto fun = funcs.begin(); fun != funcs.end(); fun++) {
-    ParseAPI::Function::blocklist blocks = (*fun)->blocks();
-    for (auto i = blocks.begin(); i != blocks.end(); i++) {
-      block_to_id[*i] = id++;
-    }
+  for (auto &fun : funcs) {
+    ParseAPI::Function::blocklist blocks = fun->blocks();
+    for (const auto &i : blocks)
+      block_to_id[i] = id++;
   }
 
   // generateLineInfo()
@@ -344,48 +331,62 @@ json printParse() {
   vector<Statement::Ptr> cur_lines;
   set<string> unique_sourcefiles;
 
-  for (auto addri = addresses.begin(); addri != addresses.end(); addri++) {
+  for (auto &addri : addresses) {
     cur_lines.clear();
-    symtab->getSourceLines(cur_lines, *addri);
+    symtab->getSourceLines(cur_lines, addri);
     if (cur_lines.empty()) continue;
     copy(cur_lines.begin(), cur_lines.end(),
          inserter(all_lines, all_lines.begin()));
 
-    for (auto linej = cur_lines.begin(); linej != cur_lines.end(); linej++) {
-      Statement::Ptr fl = *linej;
+    for (auto &fl : cur_lines)
       unique_sourcefiles.insert(fl->getFile());
-    }
   }
-  if (!all_lines.empty()) {
-    for (auto l = all_lines.begin(); l != all_lines.end(); l++) {
-      Statement::Ptr li = *l;
-      js["lines"].push_back({
-          {"file", print_clean_string(li->getFile())},
-          {"line", li->getLine()},
-          {"from", li->startAddr()},
-          {"to", li->endAddr()},
-      });
-    }
+  for (auto &li : all_lines) {
+    js["lines"].push_back({
+        {"file", print_clean_string(li->getFile())},
+        {"line", li->getLine()},
+        {"from", li->startAddr()},
+        {"to", li->endAddr()},
+    });
   }
 
   // generateFunctionTable
-  for (auto fit = funcs.begin(); fit != funcs.end(); fit++) {
+  for (auto &f : funcs) {
     json basic_blocks = json::array();
-    ParseAPI::Function *f = *fit;
     // printFunctionEntry
     auto blocks = f->blocks();
-    for (auto i = blocks.begin(); i != blocks.end(); i++) {
+
+
+
+    json hidables = json::array();
+    // hidables
+    ParseAPI::Block::Insns insns;
+    (*blocks.begin())->getInsns(insns);
+    auto itm = insns.begin();
+    if((itm->second.format() == "push %rbp" &&
+      (++itm)->second.format() == "mov %rsp,%rbp")) {
+
+      hidables.push_back({
+        {"start", insns.begin()->first},
+        {"end", itm->first},
+        {"name", "function beginning"}
+      });
+    }
+
+
+
+    for (const auto &block : blocks) {
       json basic_block = json::object();
       // printBlockEntry
-      auto block = *i;
       basic_block["id"] = block_to_id[block];
       basic_block["start"] = block->start();
       basic_block["end"] = block->end();
 
+
       const set<block_flags> &flags = block_to_flags[block];
       vector<string> jsonFlags;
-      for (auto i = flags.begin(); i != flags.end(); i++) {
-        switch (*i) {
+      for (auto &i : flags) {
+        switch (i) {
           case bb_vectorized:
             basic_block["flags"].push_back("vector");
             break;
@@ -407,29 +408,6 @@ json printParse() {
         }
       }
 
-      // hidables
-      if(i == blocks.begin()) {
-        ParseAPI::Block::Insns insns;
-        block->getInsns(insns);
-        cout << "Instructions start" << endl;
-        auto itm = insns.begin();
-        if((itm->second.format() == "push %rbp" &&
-          (++itm)->second.format() == "mov %rsp,%rbp")) {
-
-          basic_block["hidables"] = {
-            {"start", insns.begin()->first},
-            {"end", itm->first},
-            {"name", "function beginning"}
-          };
-        }
-        // int c = 0;
-
-        // for(auto itm = insns.begin(); itm != insns.end() && c < 2; itm++, c++) {
-        //   cout << (*itm).second.format() << endl;
-        // }
-        // cout << "Instructions end" << endl << endl << endl;
-      }
-
       basic_blocks.push_back(basic_block);
     }
 
@@ -446,9 +424,8 @@ json printParse() {
     json calls_json = json::array();
     ParseAPI::Function::edgelist el = f->callEdges();
     ParseAPI::Function::edgelist::iterator i = el.begin();
-    for (auto i = el.begin(); i != el.end(); i++) {
+    for (auto &edge : el) {
       // while (i != el.end()) {
-      Edge *edge = *i;
       if (!edge) continue;
       Block *from = edge->src();
       Block *to = edge->trg();
@@ -480,6 +457,7 @@ json printParse() {
         {"calls", calls_json},
         {"inlines", inlines_json["inlines"]},
         {"loops", loops_json["loops"]},
+        {"hidables", hidables}
     }));
   }
 
@@ -510,14 +488,9 @@ int main(int argc, char **argv) {
   if (functionNames.size() == 1 && functionNames[0] == "null") {
     funcs = co->funcs();
   } else {
-    for (CodeObject::funclist::iterator f = co->funcs().begin();
-         f != co->funcs().end(); f++) {
-      ParseAPI::Function *func = *f;
-      if (find(functionNames.begin(), functionNames.end(), func->name()) !=
-          functionNames.end()) {
+    for (auto &func : co->funcs())
+      if (find(functionNames.begin(), functionNames.end(), func->name()) != functionNames.end())
         funcs.insert(func);
-      }
-    }
   }
   if (funcs.empty()) {
     cerr << "Error: no functions in file";
@@ -533,12 +506,10 @@ int main(int argc, char **argv) {
 
   int cur_id = 0;
 
-  for (auto fit = funcs.begin(); fit != funcs.end(); fit++) {
-    ParseAPI::Function *f = *fit;
+  for (auto &f : funcs) {
     if (f->blocks().empty()) continue;
 
-    for (auto b = f->blocks().begin(); b != f->blocks().end(); b++) {
-      Block *block = *b;
+    for (const auto &block : f->blocks()) {
       Address icur = block->start();
       Address iend = block->last();
       set<block_flags> flags;
