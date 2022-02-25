@@ -11,7 +11,9 @@ RUN  apt-get update && apt-get install -y gcc g++ cmake libboost-dev yajl-tools 
 ENV LD_LIBRARY_PATH /opt/view/lib
 
 WORKDIR /root
-RUN git clone https://github.com/Prapti-044/optparser.git
-WORKDIR /root/optparser
+RUN git clone https://github.com/Prapti-044/simple-optparser.git
+WORKDIR /root/simple-optparser
+RUN git checkout dev
+
 
 # docker run --rm -it --entrypoint fish dyninst-dev
