@@ -120,10 +120,34 @@ string print_clean_string(const std::string &str) {
   return regex_replace(str, pattern, "?");
 }
 
-template <typename T>
-inline string number_to_hex(T val) {
+// template <typename T>
+// inline string number_to_hex(T val) {
+//   stringstream stream;
+//   stream << nouppercase << showbase << hex << val;
+//   return stream.str();
+// }
+
+string number_to_hex(const unsigned long val) {
   stringstream stream;
-  stream << hex << val;
+  stream << nouppercase << showbase << hex << (unsigned int)val;
+  return stream.str();
+}
+
+string number_to_hex(const unsigned int val) {
+  stringstream stream;
+  stream << nouppercase << showbase << hex << val;
+  return stream.str();
+}
+
+string number_to_hex(const int val) {
+  stringstream stream;
+  stream << nouppercase << showbase << hex << val;
+  return stream.str();
+}
+
+string number_to_hex(const long val) {
+  stringstream stream;
+  stream << nouppercase << showbase << hex << (int) val;
   return stream.str();
 }
 
@@ -132,10 +156,6 @@ inline string getRegFromFullName(string fullname) {
 }
 
 json printVar(localVar *var) {
-  string stClassArr[] = {"storageUnset", "storageAddr", "storageReg",
-                         "storageRegOffset"};
-  string refClassArr[] = {"storageRefUnset", "storageRef", "storageNoRef"};
-
   string name = var->getName();
   int lineNum = var->getLineNum();
   string fileName = var->getFileName();
@@ -157,39 +177,28 @@ json printVar(localVar *var) {
     // Match the variable format with the output in the disassembly
     if (location.stClass == storageAddr) {
       if (location.refClass == storageNoRef) {
-        finalVarString = "$0x" + number_to_hex(frameOffset);  // at&t syntax
-        // finalVarString = number_to_hex(frameOffset);
+        finalVarString = "$" + number_to_hex(frameOffset);  // at&t syntax
       } else if (location.refClass == storageRef) {
         finalVarString =
-            "($0x" + number_to_hex(frameOffset) + ")";  // at&t syntax
-        // finalVarString = "[" + number_to_hex(frameOffset) + "]";
+            "($" + number_to_hex(frameOffset) + ")";  // at&t syntax
       }
     } else if (location.stClass == storageReg) {
       if (location.refClass == storageNoRef) {
         finalVarString =
             "%" + getRegFromFullName(location.mr_reg.name());  // at&t syntax
-        // finalVarString = getRegFromFullName(location.mr_reg.name());
       } else if (location.refClass == storageRef) {
         finalVarString = "(%" + getRegFromFullName(location.mr_reg.name()) +
                          ")";  // at&t syntax
-        // finalVarString = "[" + getRegFromFullName(location.mr_reg.name())
-        // +
-        // "]";
       }
     } else if (location.stClass == storageRegOffset) {
       if (location.refClass == storageNoRef) {
-        finalVarString = "0x" + number_to_hex(frameOffset) + "(%" +
+        finalVarString = number_to_hex(frameOffset) + "(%" +
                          getRegFromFullName(location.mr_reg.name()) +
                          ")";  // at&t syntax
-        // finalVarString = getRegFromFullName(location.mr_reg.name()) + " +
-        // "
-        // + number_to_hex(frameOffset);
       } else if (location.refClass == storageRef) {
-        finalVarString = "0x" + number_to_hex(frameOffset) + "(%" +
+        finalVarString = number_to_hex(frameOffset) + "(%" +
                          getRegFromFullName(location.mr_reg.name()) +
                          ")";  // at&t syntax
-        // finalVarString = "[" + getRegFromFullName(location.mr_reg.name())
-        // + " + " + number_to_hex(frameOffset) + "]";
       }
     }
     locations_json.push_back({{"start", lowPC_str},
