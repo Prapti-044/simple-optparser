@@ -1,6 +1,6 @@
 
-test: test.cpp
-	g++ -g -o test test.cpp
+test: test.c
+	gcc -g -O0 test.c -o test
 
 optparser: optparser.cpp
 	g++ -std=c++0x -o optparser optparser.cpp -L/opt/view/lib -lsymtabAPI -I/opt/view/include -lparseAPI -linstructionAPI -lsymLite -ldynDwarf -ldynElf -lcommon -lelf
@@ -15,4 +15,4 @@ test.json: simpleopt test
 	./simpleopt -b test
 
 clean:
-	rm -rf test cfg dissassemble simpleopt
+	rm -rf test simpleopt *.json optparser

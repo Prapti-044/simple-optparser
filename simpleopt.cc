@@ -533,7 +533,7 @@ int main(int argc, char **argv) {
 
   json js = printParse();
   ofstream jsonf(filename + ".json");
-  jsonf << js;
+  jsonf << js.dump();
   jsonf.close();
 
   return 0;
