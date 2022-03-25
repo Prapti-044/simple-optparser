@@ -1,17 +1,4 @@
-#include <signal.h>
-
-#include <fstream>
-#include <iostream>
-#include <map>
-#include <regex>
-#include <set>
-
-#include "CodeObject.h"
-#include "Function.h"
-#include "InstructionDecoder.h"
-#include "Symtab.h"
-#include "includes/cxxopts.hpp"
-#include "includes/json.hpp"
+#include "simpleopt.h"
 
 #define INTERACTIVE_TIMEOUT_S 600
 #define MAX_NAME_LENGTH 128
@@ -119,13 +106,6 @@ string print_clean_string(const std::string &str) {
 
   return regex_replace(str, pattern, "?");
 }
-
-// template <typename T>
-// inline string number_to_hex(T val) {
-//   stringstream stream;
-//   stream << nouppercase << showbase << hex << val;
-//   return stream.str();
-// }
 
 string number_to_hex(const unsigned long val) {
   stringstream stream;
@@ -324,6 +304,81 @@ json printLoopEntry(LoopTreeNode *lt) {
   return loop_json;
 }
 
+bool matchOperands(
+  const vector<signed int> &readSet,
+  const vector<signed int> &writeSet,
+  const vector<Operand> &operands
+  ) {
+  vector<bool> readSetMatched(readSet.size());
+  vector<bool> writeSetMatched(writeSet.size());
+
+  for(auto &operand: operands) {
+    InstructionAPI::Operation_impl::registerSet regs;
+    if(readSet.size() != 0) {
+      operand.getReadSet(regs);
+      for(auto &reg: regs) {
+        auto found = find(readSet.begin(), readSet.end(), reg.get()->getID());
+        if(found == readSet.end()) return false;
+        readSetMatched[found - readSet.begin()] = true;
+      }
+    }
+    if(writeSet.size() != 0) {
+      operand.getWriteSet(regs);
+      for(auto &reg: regs) {
+        auto found = find(writeSet.begin(), writeSet.end(), reg.get()->getID());
+        if(found == writeSet.end()) return false;
+        writeSetMatched[found - writeSet.begin()] = true;
+      }
+    }
+  }
+
+  if(readSet.size() != 0 && !all_of(readSetMatched.begin(), readSetMatched.end(), [](bool val) { return val; })) { return false; }
+  if(writeSet.size() != 0 && !all_of(writeSetMatched.begin(), writeSetMatched.end(), [](bool val) { return val; })) { return false; }
+
+  return true;
+}
+
+json getFuncBegin(ParseAPI::Function* f) {
+  auto blocks = f->blocks();
+  ParseAPI::Block::Insns insns;
+  (*blocks.begin())->getInsns(insns);
+
+  auto itm = insns.begin();
+  auto instruction = itm->second;
+
+  auto operation = instruction.getOperation();
+  if(operation.getID() == e_push) {
+    vector<Operand> operands;
+    instruction.getOperands(operands);
+    
+    if(!matchOperands({Dyninst::x86_64::rsp, Dyninst::x86_64::rbp}, {}, operands, instruction.getArch())) return {};
+  }
+  else return {};
+
+  itm++;
+  if(itm == insns.end()) return {};
+  instruction = itm->second;
+
+  operation = instruction.getOperation();
+  // mov %rsp %rbp
+  if(operation.getID() == e_mov) {
+    vector<Operand> operands;
+    instruction.getOperands(operands);
+    if(!matchOperands(
+      {Dyninst::x86_64::rsp}, // Read Reg
+      {Dyninst::x86_64::rbp, Dyninst::x86_64::rsp}, // Write Reg
+      operands
+    )) return {};
+  }
+  else return {};
+
+  return {
+    {"start", insns.begin()->first},
+    {"end", itm->first},
+    {"name", "function beginning"}
+  };
+}
+
 json printParse() {
   json js;
 
@@ -365,23 +420,11 @@ json printParse() {
     // printFunctionEntry
     auto blocks = f->blocks();
 
-
-
     json hidables = json::array();
     // hidables
-    ParseAPI::Block::Insns insns;
-    (*blocks.begin())->getInsns(insns);
-    auto itm = insns.begin();
-    if((itm->second.format() == "push %rbp" &&
-      (++itm)->second.format() == "mov %rsp,%rbp")) {
-
-      hidables.push_back({
-        {"start", insns.begin()->first},
-        {"end", itm->first},
-        {"name", "function beginning"}
-      });
-    }
-
+    auto funcBeginHidable = getFuncBegin(f);
+    if(!funcBeginHidable.empty())
+      hidables.push_back(funcBeginHidable);
 
 
     for (const auto &block : blocks) {
@@ -473,16 +516,56 @@ json printParse() {
   return js;
 }
 
-int main(int argc, char **argv) {
-  parseArgs(argc, argv);
+string writeDOT() {
+  stringstream out;
+  int cur_id = 0;
 
-  const char *last_slash = strrchr(binaryPath.c_str(), '/');
-  string filename;
-  if (last_slash)
-    filename = string(last_slash + 1);
-  else
-    filename = binaryPath;
+  out << "digraph g {" << endl;
 
+  for (auto &f : funcs) {
+    if (f->blocks().empty()) continue;
+
+    for (const auto &block : f->blocks()) {
+      Address icur = block->start();
+      Address iend = block->last();
+
+      ParseAPI::Block::Insns insns;
+      block->getInsns(insns);
+      stringstream instr_str;
+
+      for (auto &instr : insns) {
+        instr_str << hex << "0x" << instr.first << ": " << instr.second.format() << "\\n";
+      }
+
+      // Set the basic block label to: function_name\n[instruction list]
+      out << "B" << cur_id << " [shape=box, style=solid, label=\"";
+      out << print_clean_string(f->name());
+      out << "\\n" << instr_str.str() << " 1, 0\"];" << endl;
+      block_ids[block] = cur_id++;
+    }
+  }
+
+  for (auto &f : funcs) {
+    for (const auto &block: f->blocks()) {
+      for (auto &edge : block->sources()) {
+        auto sourcei = block_ids.find(edge->src());
+        auto targeti = block_ids.find(edge->trg());
+        if (sourcei == block_ids.end() || targeti == block_ids.end()) continue;
+        out << "B" << sourcei->second << " -> B" << targeti->second
+            << " [style=solid, color=\"black\"];" << endl;
+      }
+    }
+  }
+  out << "}" << endl << endl;
+  return out.str();
+}
+
+string printParseString() {
+  json out = printParse();
+  return out.dump();
+}
+
+int decode(string binaryFilePath) {
   bool isParsable = SymtabAPI::Symtab::openFile(symtab, binaryPath);
   if (!isParsable) {
     cerr << "Error: file " << binaryPath << " can not be parsed" << endl;
@@ -539,11 +622,32 @@ int main(int argc, char **argv) {
       block_to_flags.insert(make_pair(block, flags));
     }
   }
+  return 0;
+}
 
-  json js = printParse();
+int main(int argc, char **argv) {
+  parseArgs(argc, argv);
+
+  if(!decode(binaryPath)) return -1;
+
+  const char *last_slash = strrchr(binaryPath.c_str(), '/');
+  string filename;
+  if (last_slash)
+    filename = string(last_slash + 1);
+  else
+    filename = binaryPath;
+
   ofstream jsonf(filename + ".json");
-  jsonf << js.dump();
+  jsonf << printParseString();
   jsonf.close();
 
+  ofstream dotf(filename + ".dot");
+  dotf << writeDOT();
+  dotf.close();
+
   return 0;
+}
+
+int hello(string baal) {
+  cout << "hello" << endl;
 }
