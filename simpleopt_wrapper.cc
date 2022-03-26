@@ -14,7 +14,7 @@ static PyObject *method_decode(PyObject *self, PyObject *args) {
     char *binaryFilePath = NULL;
 
     /* Parse arguments */
-    if(!PyArg_ParseTuple(args, "ss", &binaryFilePath)) {
+    if(!PyArg_ParseTuple(args, "s", &binaryFilePath)) {
         return NULL;
     }
 
@@ -30,16 +30,16 @@ static PyObject *method_printParseString(PyObject *self, PyObject *args) {
     return PyUnicode_FromString(ret.c_str());
 }
 
-static PyObject *method_hello(PyObject *self, PyObject *args) {
-    int ret = hello("klsdjfkls");
-    return PyUnicode_FromString("lskdjf");
+static PyObject *method_writeDot(PyObject *self, PyObject *args) {
+    std::string ret = writeDOT();
+    return PyUnicode_FromString(ret.c_str());
 }
 
 
 static PyMethodDef SimpleOptMethods[] = {
     {"decode", method_decode, METH_VARARGS, "Python interface for decode C function"},
-    {"printparsestring", method_printParseString, METH_VARARGS, "return the json string"},
-    {"hello", method_hello, METH_VARARGS, "hellosadikjfo"},
+    {"get_json", method_printParseString, METH_VARARGS, "return the json string"},
+    {"get_dot", method_writeDot, METH_VARARGS, "return the dot string"},
     {NULL, NULL, 0, NULL}
 };
 

@@ -1,12 +1,10 @@
-#include <iostream>
-
-using namespace std;
+#include <stdio.h>
 
 int add(int a, int b) {
     return a + b;
 }
 
-inline int sub(int a, int b) {
+int sub(int a, int b) {
     return a - b;
 }
 
@@ -27,13 +25,7 @@ int main() {
         }
     }
 
-    cout << g << endl;
-
-    for(int i = 0; i<10; i++) {
-        cout << "hello" << endl;
-    }
-
-    std::cout << "hello" << std::endl;
+    printf("%d", g);
 
     return 0;
 }

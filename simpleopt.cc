@@ -69,9 +69,10 @@ bool parseArgs(int argc, char **argv) {
     e.what();
     exit(0);
   }
+  return true;
 }
 
-void setBlockFlags(Block *block, const Instruction &instr,
+void setBlockFlags(const Block *block, const Instruction &instr,
                    set<block_flags> &flags) {
   switch (instr.getCategory()) {
 #if defined(DYNINST_MAJOR_VERSION) && (DYNINST_MAJOR_VERSION >= 10)
@@ -131,7 +132,7 @@ string number_to_hex(const long val) {
   return stream.str();
 }
 
-inline string getRegFromFullName(string fullname) {
+inline string getRegFromFullName(const string &fullname) {
   return fullname.substr(fullname.rfind("::") + 2);
 }
 
@@ -351,7 +352,7 @@ json getFuncBegin(ParseAPI::Function* f) {
     vector<Operand> operands;
     instruction.getOperands(operands);
     
-    if(!matchOperands({Dyninst::x86_64::rsp, Dyninst::x86_64::rbp}, {}, operands, instruction.getArch())) return {};
+    if(!matchOperands({Dyninst::x86_64::rsp, Dyninst::x86_64::rbp}, {}, operands)) return {};
   }
   else return {};
 
@@ -474,10 +475,7 @@ json printParse() {
 
     // printCalls
     json calls_json = json::array();
-    ParseAPI::Function::edgelist el = f->callEdges();
-    ParseAPI::Function::edgelist::iterator i = el.begin();
-    for (auto &edge : el) {
-      // while (i != el.end()) {
+    for (auto &edge : f->callEdges()) {
       if (!edge) continue;
       Block *from = edge->src();
       Block *to = edge->trg();
@@ -526,9 +524,6 @@ string writeDOT() {
     if (f->blocks().empty()) continue;
 
     for (const auto &block : f->blocks()) {
-      Address icur = block->start();
-      Address iend = block->last();
-
       ParseAPI::Block::Insns insns;
       block->getInsns(insns);
       stringstream instr_str;
@@ -565,7 +560,7 @@ string printParseString() {
   return out.dump();
 }
 
-int decode(string binaryFilePath) {
+int decode(const string binaryPath) {
   bool isParsable = SymtabAPI::Symtab::openFile(symtab, binaryPath);
   if (!isParsable) {
     cerr << "Error: file " << binaryPath << " can not be parsed" << endl;
@@ -577,7 +572,7 @@ int decode(string binaryFilePath) {
   // parse the binary given as a command line arg
   co->parse();
 
-  if (functionNames.size() == 1 && functionNames[0] == "null") {
+  if (functionNames.size() == 0 || (functionNames.size() == 1 && functionNames[0] == "null")) {
     funcs = co->funcs();
   } else {
     for (auto &func : co->funcs())
@@ -585,7 +580,7 @@ int decode(string binaryFilePath) {
         funcs.insert(func);
   }
   if (funcs.empty()) {
-    cerr << "Error: no functions in file";
+    cerr << "Error: no functions in file" << endl;
     return -1;
   }
 
@@ -646,8 +641,4 @@ int main(int argc, char **argv) {
   dotf.close();
 
   return 0;
-}
-
-int hello(string baal) {
-  cout << "hello" << endl;
 }

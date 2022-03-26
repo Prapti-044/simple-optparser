@@ -2,8 +2,6 @@
 #define SIMPLEOPT
 
 
-#include <iostream>
-
 #include <signal.h>
 
 #include <fstream>
@@ -20,12 +18,9 @@
 #include <json.hpp>
 #include "includes/cxxopts.hpp"
 
-extern "C" {
-    int decode(std::string);
-    nlohmann::json printParse();
-    std::string printParseString();
-    std::string writeDOT();
-    int hello(std::string);
-}
+int decode(std::string);
+nlohmann::json printParse();
+std::string printParseString();
+std::string writeDOT();
 
 #endif

@@ -13,7 +13,7 @@ def main():
         ext_modules=[
             Extension(
                 name="simpleoptparser",
-                sources=["simpleopt_wrapper.cc"],
+                sources=["simpleopt_wrapper.cc", "simpleopt.cc"],
                 include_dirs=["/opt/view/include", "/root/simple-optparser/includes", "/usr/include"],
                 library_dirs=["/opt/view/lib", "/opt/view/lib64"],
                 libraries=["symtabAPI", "parseAPI", "instructionAPI", "symLite", "dynDwarf", "dynElf", "common", "elf"],
