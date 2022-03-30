@@ -33,6 +33,7 @@ set<Address> addresses;
 SymtabAPI::Symtab *symtab;
 CodeObject::funclist funcs;
 map<Block *, unsigned long> block_to_id;
+set<string> unique_sourcefiles;
 
 cxxopts::Options options("simpleopt", "The simpleopt takes a binary file and disassembles it and creates a convinient json file.");
 void printHelp() { cout << options.help() << endl; }
@@ -380,6 +381,18 @@ json getFuncBegin(ParseAPI::Function* f) {
   };
 }
 
+json printSourceFiles() {
+   if (unique_sourcefiles.empty()) return json::array();
+
+   json sourceFilesJson = json::array();
+   for (const auto &file : unique_sourcefiles) {
+     json fileJson = {"file", file};
+     sourceFilesJson.push_back(fileJson);
+   }
+   return {"sourcefiles", sourceFilesJson};
+}
+
+
 json printParse() {
   json js;
 
@@ -394,7 +407,6 @@ json printParse() {
   // generateLineInfo()
   set<Statement::Ptr> all_lines;
   vector<Statement::Ptr> cur_lines;
-  set<string> unique_sourcefiles;
 
   for (auto &addri : addresses) {
     cur_lines.clear();
@@ -402,9 +414,6 @@ json printParse() {
     if (cur_lines.empty()) continue;
     copy(cur_lines.begin(), cur_lines.end(),
          inserter(all_lines, all_lines.begin()));
-
-    for (auto &fl : cur_lines)
-      unique_sourcefiles.insert(fl->getFile());
   }
   for (auto &li : all_lines) {
     js["lines"].push_back({
@@ -555,11 +564,6 @@ string writeDOT() {
   return out.str();
 }
 
-string printParseString() {
-  json out = printParse();
-  return out.dump();
-}
-
 int decode(const string binaryPath) {
   bool isParsable = SymtabAPI::Symtab::openFile(symtab, binaryPath);
   if (!isParsable) {
@@ -617,6 +621,21 @@ int decode(const string binaryPath) {
       block_to_flags.insert(make_pair(block, flags));
     }
   }
+
+  vector<Statement::Ptr> cur_lines;
+
+  for (auto &addri : addresses) {
+    cur_lines.clear();
+    symtab->getSourceLines(cur_lines, addri);
+    if (cur_lines.empty()) continue;
+
+    for (auto &fl : cur_lines)
+      unique_sourcefiles.insert(fl->getFile());
+  }
+
+
+
+
   return 0;
 }
 
@@ -633,7 +652,7 @@ int main(int argc, char **argv) {
     filename = binaryPath;
 
   ofstream jsonf(filename + ".json");
-  jsonf << printParseString();
+  jsonf << printParse().dump();
   jsonf.close();
 
   ofstream dotf(filename + ".dot");

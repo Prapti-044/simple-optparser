@@ -25,8 +25,15 @@ static PyObject *method_decode(PyObject *self, PyObject *args) {
     return PyLong_FromLong(0);
 }
 
-static PyObject *method_printParseString(PyObject *self, PyObject *args) {
-    std::string ret = printParseString();
+static PyObject *method_printParse(PyObject *self, PyObject *args) {
+
+    std::string ret = printParse().dump();
+    return PyUnicode_FromString(ret.c_str());
+}
+
+static PyObject *method_printSourceFiles(PyObject *self, PyObject *args) {
+
+    std::string ret = printSourceFiles().dump();
     return PyUnicode_FromString(ret.c_str());
 }
 
@@ -38,7 +45,8 @@ static PyObject *method_writeDot(PyObject *self, PyObject *args) {
 
 static PyMethodDef SimpleOptMethods[] = {
     {"decode", method_decode, METH_VARARGS, "Python interface for decode C function"},
-    {"get_json", method_printParseString, METH_VARARGS, "return the json string"},
+    {"get_json", method_printParse, METH_VARARGS, "return the json string"},
+    {"get_sourcefiles", method_printSourceFiles, METH_VARARGS, "return the source files"},
     {"get_dot", method_writeDot, METH_VARARGS, "return the dot string"},
     {NULL, NULL, 0, NULL}
 };

@@ -20,7 +20,7 @@
 
 int decode(std::string);
 nlohmann::json printParse();
-std::string printParseString();
 std::string writeDOT();
+nlohmann::json printSourceFiles();
 
 #endif
