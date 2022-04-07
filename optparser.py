@@ -9,19 +9,28 @@ import tempfile
 import subprocess
 
 
+key = None
+
 def parse(args):
     simpleoptparser.decode(last_opened_file)
     ret = simpleoptparser.get_json()
+    # with open(key, 'w') as f:
+    #     f.write(ret)
     print(ret)
 
 def dot(args):
     simpleoptparser.decode(last_opened_file)
     ret = simpleoptparser.get_dot()
+    # with open(key, 'w') as f:
+    #     f.write(ret)
     print(ret)
 
 def sourcefiles(args):
     simpleoptparser.decode(last_opened_file)
     ret = simpleoptparser.get_sourcefiles()
+    ret = '''"sourcefiles": ''' + ret
+    # with open(key, 'w') as f:
+    #     f.write(ret)
     print(ret)
 
 def stub(args):
@@ -40,6 +49,7 @@ def openFile(args):
     last_opened_file = args.filepath
     with open(last_opened_file_name, 'w') as f:
         f.write(last_opened_file)
+    print("/tmp/stub")
 
 def closeFile(args):
     os.remove(last_opened_file_name)

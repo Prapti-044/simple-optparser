@@ -386,10 +386,11 @@ json printSourceFiles() {
 
    json sourceFilesJson = json::array();
    for (const auto &file : unique_sourcefiles) {
-     json fileJson = {"file", file};
-     sourceFilesJson.push_back(fileJson);
+     json jsonFile;
+     jsonFile["file"] = file;
+     sourceFilesJson.push_back(jsonFile);
    }
-   return {"sourcefiles", sourceFilesJson};
+   return sourceFilesJson;
 }
 
 
