@@ -536,16 +536,17 @@ string writeDOT() {
     for (const auto &block : f->blocks()) {
       ParseAPI::Block::Insns insns;
       block->getInsns(insns);
-      stringstream instr_str;
+      stringstream instr_stream;
 
-      for (auto &instr : insns) {
-        instr_str << hex << "0x" << instr.first << ": " << instr.second.format() << "\\n";
-      }
+      for (auto &instr : insns)
+        instr_stream << hex << "0x" << instr.first << ": " << instr.second.format() << "\\n";
+      string instr_str = instr_stream.str();
+      instr_str = instr_str.substr(0, instr_str.size()-2);
 
       // Set the basic block label to: function_name\n[instruction list]
       out << "B" << cur_id << " [shape=box, style=solid, label=\"";
       out << print_clean_string(f->name());
-      out << "\\n" << instr_str.str() << " 1, 0\"];" << endl;
+      out << "\\n" << instr_str << "\"];" << endl;
       block_ids[block] = cur_id++;
     }
   }
