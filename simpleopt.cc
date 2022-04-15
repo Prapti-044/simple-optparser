@@ -377,7 +377,7 @@ json getFuncBegin(ParseAPI::Function* f) {
   return {
     {"start", insns.begin()->first},
     {"end", itm->first},
-    {"name", "function beginning"}
+    {"name", "Function Entry"}
   };
 }
 
