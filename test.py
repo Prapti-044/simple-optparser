@@ -16,57 +16,5 @@ with open("out.dot", "w") as f:
 
 with open("sourceFiles.json", "w") as f:
     f.write(
-        sopt.get_sourcef
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        iles()
+        sopt.get_sourcefiles()
     )

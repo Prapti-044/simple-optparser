@@ -635,10 +635,56 @@ int decode(const string binaryPath) {
       unique_sourcefiles.insert(fl->getFile());
   }
 
-
-
-
   return 0;
+}
+
+// open executable
+
+// getsourcefiles
+
+json getAssembly() {
+  json res = {
+    {"blocks", json::array()},
+    {"links", json::array()}
+  };
+  int cur_id = 0;
+
+  for (auto &f : funcs) {
+    if (f->blocks().empty()) continue;
+
+    for (const auto &block : f->blocks()) {
+      ParseAPI::Block::Insns insns;
+      block->getInsns(insns);
+
+      json blockJson;
+      for (auto &instr : insns) {
+        blockJson.push_back({
+          {"address", instr.first},
+          {"instruction", instr.second.format()}
+        });
+      }
+      res["blocks"].push_back({
+        {"B"+std::to_string(cur_id), blockJson},
+        {"function_name", print_clean_string(f->name())}
+      });
+      block_ids[block] = cur_id++;
+    }
+  }
+
+  for (auto &f : funcs) {
+    for (const auto &block: f->blocks()) {
+      for (auto &edge : block->sources()) {
+        auto sourcei = block_ids.find(edge->src());
+        auto targeti = block_ids.find(edge->trg());
+        if (sourcei == block_ids.end() || targeti == block_ids.end()) continue;
+        res["links"].push_back({
+          {"source", sourcei->second},
+          {"target", targeti->second}
+        });
+      }
+    }
+  }
+  return res;
 }
 
 int main(int argc, char **argv) {

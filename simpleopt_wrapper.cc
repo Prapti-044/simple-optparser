@@ -37,6 +37,12 @@ static PyObject *method_printSourceFiles(PyObject *self, PyObject *args) {
     return PyUnicode_FromString(ret.c_str());
 }
 
+static PyObject *method_getAssembly(PyObject *self, PyObject *args) {
+
+    std::string ret = getAssembly().dump();
+    return PyUnicode_FromString(ret.c_str());
+}
+
 static PyObject *method_writeDot(PyObject *self, PyObject *args) {
     std::string ret = writeDOT();
     return PyUnicode_FromString(ret.c_str());
@@ -48,6 +54,7 @@ static PyMethodDef SimpleOptMethods[] = {
     {"get_json", method_printParse, METH_VARARGS, "return the json string"},
     {"get_sourcefiles", method_printSourceFiles, METH_VARARGS, "return the source files"},
     {"get_dot", method_writeDot, METH_VARARGS, "return the dot string"},
+    {"get_assembly", method_getAssembly, METH_VARARGS, "return the disassembly code"},
     {NULL, NULL, 0, NULL}
 };
 
