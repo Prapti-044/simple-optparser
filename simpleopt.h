@@ -22,5 +22,6 @@ int decode(std::string);
 nlohmann::json printParse();
 std::string writeDOT();
 nlohmann::json printSourceFiles();
+nlohmann::json getAssembly();
 
 #endif
