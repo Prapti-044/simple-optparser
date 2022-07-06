@@ -567,6 +567,19 @@ string writeDOT() {
 }
 
 int decode(const string binaryPath) {
+  // Clear previous states
+  unique_sourcefiles.clear();
+  block_ids.clear();
+  block_to_flags.clear();
+  addresses.clear();
+  if(symtab) {
+    delete symtab;
+    symtab = nullptr;
+  }
+  funcs.clear();
+  block_to_id.clear();
+
+
   bool isParsable = SymtabAPI::Symtab::openFile(symtab, binaryPath);
   if (!isParsable) {
     cerr << "Error: file " << binaryPath << " can not be parsed" << endl;
