@@ -1,6 +1,5 @@
 #include "simpleopt.h"
 
-#define INTERACTIVE_TIMEOUT_S 600
 #define MAX_NAME_LENGTH 128
 
 using namespace std;
@@ -12,8 +11,6 @@ using namespace InstructionAPI;
 using json = nlohmann::json;
 
 // Arguements
-bool verbose;
-bool interactive;
 string binaryPath;
 vector<string> functionNames;
 
@@ -27,50 +24,30 @@ typedef enum {
 } block_flags;
 
 // Globals
-map<Block *, int> block_ids;
+map<Block *, string> block_ids;
 map<Block *, set<block_flags> > block_to_flags;
 set<Address> addresses;
 SymtabAPI::Symtab *symtab;
 CodeObject::funclist funcs;
-map<Block *, unsigned long> block_to_id;
 set<string> unique_sourcefiles;
 
 cxxopts::Options options("simpleopt", "The simpleopt takes a binary file and disassembles it and creates a convinient json file.");
 void printHelp() { cout << options.help() << endl; }
 
-bool parseArgs(int argc, char **argv) {
-  options.add_options()("i,interactive", "Start in Interactive mode",
-                        cxxopts::value<bool>()->default_value("false"))(
-      "b,binary", "Binary File Path", cxxopts::value<std::string>())(
-      "f,functions", "Functions",
-      cxxopts::value<vector<string> >()->default_value("null"))(
-      "v,verbose", "Verbose output",
-      cxxopts::value<bool>()->default_value("false"))("h,help", "Print usage");
+void parseArgs(int argc, char **argv) {
+  options.add_options()
+    ("b,binary", "Binary File Path", cxxopts::value<std::string>())
+    ("f,functions", "Functions", cxxopts::value<vector<string> >()->default_value("null"))
+    ("h,help", "Print usage");
 
-  cxxopts::ParseResult result;
-  try {
-    result = options.parse(argc, argv);
-  } catch (cxxopts::option_not_exists_exception e) {
-    cout << e.what() << endl;
-    printHelp();
-    exit(0);
-  }
+  auto result = options.parse(argc, argv);
 
   if (result.count("help")) {
     printHelp();
     exit(0);
   }
-  try {
-    verbose = result["verbose"].as<bool>();
-    interactive = result["interactive"].as<bool>();
-    binaryPath = result["binary"].as<std::string>();
-    functionNames = result["functions"].as<vector<string> >();
-  } catch (cxxopts::option_has_no_value_exception e) {
-    printHelp();
-    e.what();
-    exit(0);
-  }
-  return true;
+  binaryPath = result["binary"].as<std::string>();
+  functionNames = result["functions"].as<vector<string> >();
 }
 
 void setBlockFlags(const Block *block, const Instruction &instr,
@@ -96,7 +73,8 @@ void setBlockFlags(const Block *block, const Instruction &instr,
 }
 
 string print_clean_string(const std::string &str) {
-  static regex pattern("[^a-zA-Z0-9 /:;,\\.{}\\[\\]<>~|\\-_+()&\\*=$!#]");
+  // static regex pattern("[^a-zA-Z0-9 /:;,\\.{}\\[\\]<>~|\\-_+()&\\*=$!#]");
+  static regex pattern("[^a-zA-Z0-9 _:><]");
   const size_t len = str.length();
   std::string str2;
   if (len > MAX_NAME_LENGTH) {
@@ -293,13 +271,13 @@ json printLoopEntry(LoopTreeNode *lt) {
     if (!backedges.empty()) {
       for (auto &e : backedges) {
         loop_json["backedges"].push_back({
-            {"from", block_to_id[e->src()]},
-            {"to", block_to_id[e->trg()]},
+            {"from", block_ids[e->src()]},
+            {"to", block_ids[e->trg()]},
         });
       }
     }
-    for (auto &i : blocks)
-      loop_json["blocks"].push_back(block_to_id[i]);
+    for (auto &block : blocks)
+      loop_json["blocks"].push_back(block_ids[block]);
   }
   for (auto &i : lt->children)
     loop_json["loops"].push_back(printLoopEntry(i));
@@ -393,17 +371,16 @@ json printSourceFiles() {
    return sourceFilesJson;
 }
 
-
 json printParse() {
   json js;
 
   // setBlockIds()
-  unsigned long id = 0;
-  for (auto &fun : funcs) {
-    ParseAPI::Function::blocklist blocks = fun->blocks();
-    for (const auto &i : blocks)
-      block_to_id[i] = id++;
-  }
+  // unsigned long id = 0;
+  // for (auto &fun : funcs) {
+  //   ParseAPI::Function::blocklist blocks = fun->blocks();
+  //   for (const auto &i : blocks)
+  //     block_ids[i] = id++;
+  // }
 
   // generateLineInfo()
   set<Statement::Ptr> all_lines;
@@ -441,7 +418,7 @@ json printParse() {
     for (const auto &block : blocks) {
       json basic_block = json::object();
       // printBlockEntry
-      basic_block["id"] = block_to_id[block];
+      basic_block["id"] = block_ids[block];
       basic_block["start"] = block->start();
       basic_block["end"] = block->end();
 
@@ -526,7 +503,6 @@ json printParse() {
 
 string writeDOT() {
   stringstream out;
-  int cur_id = 0;
 
   out << "digraph g {" << endl;
 
@@ -544,10 +520,9 @@ string writeDOT() {
       instr_str = instr_str.substr(0, instr_str.size()-2);
 
       // Set the basic block label to: function_name\n[instruction list]
-      out << "B" << cur_id << " [shape=box, style=solid, label=\"";
+      out << "B" << block_ids[block] << " [shape=box, style=solid, label=\"";
       out << print_clean_string(f->name());
       out << "\\n" << instr_str << "\"];" << endl;
-      block_ids[block] = cur_id++;
     }
   }
 
@@ -566,9 +541,14 @@ string writeDOT() {
   return out.str();
 }
 
+string block_to_name(const ParseAPI::Function *fn, const ParseAPI::Block *block, const int cur_id) {
+  return print_clean_string(fn->name() + ": B" + itos(cur_id));
+}
+
+// All functions must be called after this one.
 int decode(const string binaryPath) {
   // Clear previous states
-  unique_sourcefiles.clear();
+  for(auto &iter: block_ids) delete iter.first;
   block_ids.clear();
   block_to_flags.clear();
   addresses.clear();
@@ -577,7 +557,7 @@ int decode(const string binaryPath) {
     symtab = nullptr;
   }
   funcs.clear();
-  block_to_id.clear();
+  unique_sourcefiles.clear();
 
 
   bool isParsable = SymtabAPI::Symtab::openFile(symtab, binaryPath);
@@ -588,7 +568,6 @@ int decode(const string binaryPath) {
   SymtabCodeSource *sts =
       new SymtabCodeSource(const_cast<char *>(binaryPath.c_str()));
   CodeObject *co = new CodeObject(sts);
-  // parse the binary given as a command line arg
   co->parse();
 
   if (functionNames.size() == 0 || (functionNames.size() == 1 && functionNames[0] == "null")) {
@@ -610,9 +589,8 @@ int decode(const string binaryPath) {
       anyfunc->isrc()->getPtrToInstruction(anyfunc->addr()),
       InstructionDecoder::maxInstructionLength, anyfunc->region()->getArch());
 
-  int cur_id = 0;
-
   for (auto &f : funcs) {
+    int cur_id = 0;
     if (f->blocks().empty()) continue;
 
     for (const auto &block : f->blocks()) {
@@ -632,7 +610,7 @@ int decode(const string binaryPath) {
         icur += instr.size();
         setBlockFlags(block, instr, flags);
       }
-      block_ids[block] = cur_id++;
+      block_ids[block] = block_to_name(f, block, cur_id++);
       block_to_flags.insert(make_pair(block, flags));
     }
   }
@@ -651,16 +629,11 @@ int decode(const string binaryPath) {
   return 0;
 }
 
-// open executable
-
-// getsourcefiles
-
 json getAssembly() {
   json res = {
     {"blocks", json::array()},
     {"links", json::array()}
   };
-  int cur_id = 0;
 
   for (auto &f : funcs) {
     if (f->blocks().empty()) continue;
@@ -669,18 +642,17 @@ json getAssembly() {
       ParseAPI::Block::Insns insns;
       block->getInsns(insns);
 
-      json blockJson;
-      for (auto &instr : insns) {
-        blockJson.push_back({
+      json blockJson = {
+        {"name",block_ids[block]},
+        {"instructions", json::array()},
+        {"function_name", print_clean_string(f->name())}
+      };
+      for (auto &instr : insns)
+        blockJson["instructions"].push_back({
           {"address", instr.first},
           {"instruction", instr.second.format()}
         });
-      }
-      res["blocks"].push_back({
-        {"B"+std::to_string(cur_id), blockJson},
-        {"function_name", print_clean_string(f->name())}
-      });
-      block_ids[block] = cur_id++;
+      res["blocks"].push_back(blockJson);
     }
   }
 
