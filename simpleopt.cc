@@ -73,8 +73,7 @@ void setBlockFlags(const Block *block, const Instruction &instr,
 }
 
 string print_clean_string(const std::string &str) {
-  // static regex pattern("[^a-zA-Z0-9 /:;,\\.{}\\[\\]<>~|\\-_+()&\\*=$!#]");
-  static regex pattern("[^a-zA-Z0-9 _:><]");
+  static regex pattern("[^a-zA-Z0-9 /:;,\\.{}\\[\\]<>~|\\-_+()&\\*=$!#]");
   const size_t len = str.length();
   std::string str2;
   if (len > MAX_NAME_LENGTH) {
