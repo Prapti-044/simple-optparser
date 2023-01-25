@@ -30,6 +30,7 @@ set<Address> addresses;
 SymtabAPI::Symtab *symtab;
 CodeObject::funclist funcs;
 set<string> unique_sourcefiles;
+int curr_block_id;
 
 cxxopts::Options options("simpleopt", "The simpleopt takes a binary file and disassembles it and creates a convinient json file.");
 void printHelp() { cout << options.help() << endl; }
@@ -557,6 +558,7 @@ int decode(const string binaryPath) {
   }
   funcs.clear();
   unique_sourcefiles.clear();
+  curr_block_id = 0;
 
 
   bool isParsable = SymtabAPI::Symtab::openFile(symtab, binaryPath);
@@ -589,7 +591,6 @@ int decode(const string binaryPath) {
       InstructionDecoder::maxInstructionLength, anyfunc->region()->getArch());
 
   for (auto &f : funcs) {
-    int cur_id = 0;
     if (f->blocks().empty()) continue;
 
     for (const auto &block : f->blocks()) {
@@ -609,7 +610,7 @@ int decode(const string binaryPath) {
         icur += instr.size();
         setBlockFlags(block, instr, flags);
       }
-      block_ids[block] = block_to_name(f, block, cur_id++);
+      block_ids[block] = block_to_name(f, block, curr_block_id++);
       block_to_flags.insert(make_pair(block, flags));
     }
   }
